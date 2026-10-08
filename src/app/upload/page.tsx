@@ -61,6 +61,9 @@ function UploadContent() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [convertedFile, setConvertedFile] = useState<Blob | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const conversionType = searchParams.get("type");
 
   const isPdfToWord = conversionType === "pdf-to-word";
@@ -84,13 +87,16 @@ function UploadContent() {
   }
  
  const convertFileMethod = async () => {
-  if (!file) return;
 
+  try{
+
+  if (!file) return;
+  
   const formData = new FormData();
 
   formData.append("file", file);
   formData.append("type", conversionType || "");
-
+  setIsConverting(true);
   const response = await fetch("http://localhost:4000/convert", {
     method: "POST",
     body: formData,
@@ -103,18 +109,29 @@ if (!response.ok) {
 }
 
 const blob = await response.blob();
-const url = window.URL.createObjectURL(blob);
-const link = document.createElement("a");
-link.href = url;
-link.download = "converted.docx";
-
-document.body.appendChild(link);
-link.click();
-link.remove();
-
-window.URL.revokeObjectURL(url);
+setConvertedFile(blob);
+  }catch (error) {
+    console.error("Error converting file:", error);
+    alert("An error occurred while converting the file. Please try again.");
+  }finally{
+    setIsConverting(false);
+  }
 
 };
+
+const downloadConvertedFile = () => {
+  if (!convertedFile) return;
+  setIsDownloading(true);
+  const url = window.URL.createObjectURL(convertedFile);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = isPdfToWord ? "converted.docx" : "converted.pdf";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+  setIsDownloading(false);
+}
   return (
     <div className="flex min-h-screen flex-col bg-[radial-gradient(ellipse_at_50%_43%,rgba(232,237,255,0.72),transparent_48%),#f5f7fb] px-5 sm:px-[6.25%]">
       <header className="mx-auto flex h-[68px] w-full max-w-[1440px] items-center justify-between border-b border-[#e7eaf1] sm:h-[84px]">
@@ -276,7 +293,33 @@ window.URL.revokeObjectURL(url);
                 className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-[10px] bg-[#4355d9] px-5 text-sm font-semibold text-white shadow-[0_4px_10px_rgba(67,85,217,0.2)] transition hover:bg-[#3545c4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4355d9]"
                 type="button"
                 onClick={convertFileMethod}              >
-                Convert file
+               {isConverting ? "Converting..." : "Convert file"}
+               {!isConverting && (
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  className="size-[18px]"
+                >
+                  <path
+                    d="M4.167 10h11.666m0 0L10 4.167M15.833 10 10 15.833"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+               )}
+
+
+              </button>
+              {convertedFile && (
+                <button
+                  className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-[10px] bg-[#4355d9] px-5 text-sm font-semibold text-white shadow-[0_4px_10px_rgba(67,85,217,0.2)] transition hover:bg-[#3545c4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4355d9]"
+                  type="button"
+                  onClick={downloadConvertedFile}
+                >
+                 {isDownloading ? "Downloading..." : "Download converted file"}
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 20 20"
@@ -292,6 +335,7 @@ window.URL.revokeObjectURL(url);
                   />
                 </svg>
               </button>
+              )}
             </>
           )}
         </section>
